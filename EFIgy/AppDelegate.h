@@ -23,6 +23,7 @@
 @property (weak) IBOutlet NSProgressIndicator *progressIndicator;
 @property (weak) IBOutlet NSButton *getEFIReportButton;
 @property (nonatomic, strong) NSView *transparentBlackView;
+@property (weak) IBOutlet NSView *resultsView;
 
 @property NSDictionary *results;
 
@@ -33,5 +34,12 @@
 @property NSString *osVersion;
 @property NSString *buildNumber;
 @property NSString *hashedSysUUID;
+
+@property (weak) IBOutlet NSImageView *firmwareUpToDateImage;
+@property (weak) IBOutlet NSImageView *buildUpToDateImage;
+@property (weak) IBOutlet NSImageView *osUpToDateImage;
+@property (weak) IBOutlet NSTextField *firmwareUpToDateLabel;
+@property (weak) IBOutlet NSTextField *buildUpToDateLabel;
+@property (weak) IBOutlet NSTextField *osUpToDateLabel;
 
 @end

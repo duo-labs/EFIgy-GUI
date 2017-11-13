@@ -299,7 +299,7 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     return NO;
 }
 
-- (void)updateImage
+- (void)updateUI
 {
     BOOL firmwareBeingUpdated = NO;
     BOOL firmwareUpToDate = NO;
@@ -310,75 +310,114 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     BOOL runningHighestBuild = [self checkHighestBuild];
     BOOL osUpToDate = [self checkOSUpToDate];
 
-    if (firmwareBeingUpdated && firmwareUpToDate && runningHighestBuild && osUpToDate) {
-        dispatch_async(dispatch_get_main_queue(), ^{
+    __block NSString *firmwareUpToDateTT;
+    __block NSString *buildUpToDateTT;
+    __block NSString *osUpToDateTT;
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (firmwareBeingUpdated && firmwareUpToDate && runningHighestBuild && osUpToDate) {
             self.logo.image = [NSImage imageNamed:@"happy"];
-            self.bootROMVersionLabel.toolTip = [NSString stringWithFormat:
-                                                @"Running expected firmware version: %@",
-                                                self.bootROMVersion];
-            self.buildNumberLabel.toolTip = [NSString stringWithFormat:
-                                             @"Running expected build number: %@",
-                                             self.buildNumber];
-            self.osVersionLabel.toolTip = [NSString stringWithFormat:
-                                           @"Running expected OS version: %@",
-                                           self.osVersion];
-            
-            self.getEFIReportButton.enabled = YES;
-            [self.progressIndicator stopAnimation:self];
-            self.progressIndicator.hidden = YES;
-            [self.transparentBlackView removeFromSuperview];
-            
-        });
-    } else {
-        dispatch_async(dispatch_get_main_queue(), ^{
+            firmwareUpToDateTT = [NSString stringWithFormat:
+                                  @"Running expected firmware version: %@",
+                                  self.bootROMVersion];
+            buildUpToDateTT = [NSString stringWithFormat:
+                               @"Running expected build number: %@",
+                               self.buildNumber];
+            osUpToDateTT = [NSString stringWithFormat:
+                            @"Running latest OS version: %@",
+                            self.osVersion];
+
+            self.firmwareUpToDateLabel.stringValue = @"Firmware up-to-date";
+            self.buildUpToDateLabel.stringValue = @"Running highest OS build";
+            self.osUpToDateLabel.stringValue = @"Running latest OS version";
+
+            self.firmwareUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
+            self.buildUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
+            self.osUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
+
+            self.firmwareUpToDateLabel.toolTip = firmwareUpToDateTT;
+            self.firmwareUpToDateImage.toolTip = firmwareUpToDateTT;
+            self.buildUpToDateLabel.toolTip = buildUpToDateTT;
+            self.buildUpToDateImage.toolTip = buildUpToDateTT;
+            self.osUpToDateLabel.toolTip = osUpToDateTT;
+            self.osUpToDateImage.toolTip = osUpToDateTT;
+        } else {
             self.logo.image = [NSImage imageNamed:@"sad"];
             
             if (!firmwareBeingUpdated || !firmwareUpToDate) {
-                self.bootROMVersionLabel.textColor = [NSColor redColor];
                 if (!firmwareBeingUpdated) {
-                    self.bootROMVersionLabel.toolTip = @"Your Mac model hasn't received any firmware updates.";
+                    firmwareUpToDateTT = @"Your Mac model hasn't received any firmware updates.";
+                    self.firmwareUpToDateLabel.stringValue = @"EFI updates unavailable";
+                    self.firmwareUpToDateImage.image = [NSImage imageNamed:NSImageNameCaution];
                 } else {
-                    self.bootROMVersionLabel.toolTip = [NSString stringWithFormat:
-                                                        @"Expected firmware version: %@\n     Actual firmware version: %@",
-                                                        self.results[@"latest_efi_version"][@"msg"],
-                                                        self.bootROMVersion];
+                    firmwareUpToDateTT = [NSString stringWithFormat:
+                                          @"Expected firmware version: %@\n     Actual firmware version: %@",
+                                          self.results[@"latest_efi_version"][@"msg"],
+                                          self.bootROMVersion];
+                    self.firmwareUpToDateLabel.stringValue = @"EFI firmware out-of-date";
+                    self.firmwareUpToDateImage.image = [NSImage imageNamed:NSImageNameCaution];
                 }
             } else {
-                self.bootROMVersionLabel.toolTip = [NSString stringWithFormat:
-                                                    @"Running expected firmware version: %@",
-                                                    self.bootROMVersion];
+                firmwareUpToDateTT = [NSString stringWithFormat:
+                                      @"Running expected firmware version: %@",
+                                      self.bootROMVersion];
+                self.firmwareUpToDateLabel.stringValue = @"Firmware up-to-date";
+                self.firmwareUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
             }
-            
+
+            self.firmwareUpToDateLabel.toolTip = firmwareUpToDateTT;
+            self.firmwareUpToDateImage.toolTip = firmwareUpToDateTT;
+
             if (!runningHighestBuild) {
-                self.buildNumberLabel.textColor = [NSColor redColor];
-                self.buildNumberLabel.toolTip = [NSString stringWithFormat:
-                                                 @"Expected build number: %@\n     Actual build number: %@",
-                                                 self.results[@"latest_build_number"][@"msg"],
-                                                 self.buildNumber];
+                buildUpToDateTT = [NSString stringWithFormat:
+                                   @"Expected build number: %@\n     Actual build number: %@",
+                                   self.results[@"latest_build_number"][@"msg"],
+                                   self.buildNumber];
+                self.buildUpToDateLabel.stringValue = @"OS build out-of-date";
+                self.buildUpToDateImage.image = [NSImage imageNamed:NSImageNameCaution];
             } else {
-                self.buildNumberLabel.toolTip = [NSString stringWithFormat:
-                                                 @"Running expected build number: %@",
-                                                 self.buildNumber];
+                buildUpToDateTT = [NSString stringWithFormat:
+                                   @"Running expected build number: %@",
+                                   self.buildNumber];
+                self.buildUpToDateLabel.stringValue = @"Running highest OS build";
+                self.buildUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
             }
-            
+
+            self.buildUpToDateLabel.toolTip = buildUpToDateTT;
+            self.buildUpToDateImage.toolTip = buildUpToDateTT;
+
             if (!osUpToDate) {
-                self.osVersionLabel.textColor = [NSColor redColor];
-                self.osVersionLabel.toolTip = [NSString stringWithFormat:
-                                               @"Expected OS version: %@\n     Actual OS version: %@",
-                                               self.results[@"latest_os_version"][@"msg"],
-                                               self.osVersion];
+                osUpToDateTT = [NSString stringWithFormat:
+                                @"Expected OS version: %@\n     Actual OS version: %@",
+                                self.results[@"latest_os_version"][@"msg"],
+                                self.osVersion];
+                self.osUpToDateLabel.stringValue = @"OS out-of-date";
+                self.osUpToDateImage.image = [NSImage imageNamed:NSImageNameCaution];
             } else {
-                self.osVersionLabel.toolTip = [NSString stringWithFormat:
-                                               @"Running expected OS version: %@",
-                                               self.osVersion];
+                osUpToDateTT = [NSString stringWithFormat:
+                                @"Running latest OS version: %@",
+                                self.osVersion];
+                self.osUpToDateLabel.stringValue = @"Running latest OS version";
+                self.osUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
             }
-            
-            self.getEFIReportButton.enabled = YES;
-            [self.progressIndicator stopAnimation:self];
-            self.progressIndicator.hidden = YES;
-            [self.transparentBlackView removeFromSuperview];
-        });
-    }
+        }
+
+        self.osUpToDateLabel.toolTip = osUpToDateTT;
+        self.osUpToDateImage.toolTip = osUpToDateTT;
+
+        self.getEFIReportButton.enabled = YES;
+        [self.progressIndicator stopAnimation:self];
+        self.progressIndicator.hidden = YES;
+        [self.transparentBlackView removeFromSuperview];
+        self.resultsView.hidden = NO;
+        [self.resultsView setWantsLayer:YES];
+        self.resultsView.layer.backgroundColor = CGColorCreateGenericRGB(0.0, 0.0, 0.0, 0.6);
+        self.resultsView.layerUsesCoreImageFilters = YES;
+        CIFilter *filter = [CIFilter filterWithName:@"CIGaussianBlur"];
+        [filter setDefaults];
+        [filter setValue:[NSNumber numberWithFloat:5.0f] forKey:kCIInputRadiusKey];
+        self.resultsView.backgroundFilters = @[filter];
+    });
 }
 
 - (IBAction)getEFIReport:(id)sender
@@ -386,16 +425,16 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     self.getEFIReportButton.enabled = NO;
     self.progressIndicator.hidden = NO;
     [self.progressIndicator startAnimation:self];
-    
+
     self.transparentBlackView = [[NSView alloc] initWithFrame:[[self.window contentView] frame]];
-    
+
     CALayer *viewLayer = [CALayer layer];
     [viewLayer setBackgroundColor:CGColorCreateGenericRGB(0.0, 0.0, 0.0, 0.4)]; // RGB plus alpha channel.
     [self.transparentBlackView setWantsLayer:YES];
     [self.transparentBlackView setLayer:viewLayer];
-    
+
     [[self.window contentView] addSubview:self.transparentBlackView];
-    
+
     NSDictionary *dataToSubmit = @{@"hashed_uuid": self.hashedSysUUID,
                                    @"hw_ver": self.machineModel,
                                    @"rom_ver": self.bootROMVersion,
@@ -409,13 +448,13 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
         if (!self.results[@"efi_updates_relased"]) {
             NSString *endpoint = [NSString stringWithFormat:@"/apple/no_firmware_updates_released/%@", self.machineModel];
             [self makeAPIGet:endpoint success:^(NSDictionary *responseDict) {
-                [self updateImage];
+                [self updateUI];
             } failure:^(NSError *error) {
                 NSLog(@"Error submitting data to EFIgy API: %@", error.localizedDescription);
                 self.logo.image = [NSImage imageNamed:@"doh"];
             }];
         } else {
-            [self updateImage];
+            [self updateUI];
         }
     } failure:^(NSError *error) {
         NSLog(@"Error submitting data to EFIgy API: %@", error.localizedDescription);

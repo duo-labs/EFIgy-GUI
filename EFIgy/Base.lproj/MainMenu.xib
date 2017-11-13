@@ -4,6 +4,7 @@
         <deployment identifier="macosx"/>
         <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="13529"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+        <capability name="system font weights other than Regular or Bold" minToolsVersion="7.0"/>
     </dependencies>
     <objects>
         <customObject id="-2" userLabel="File's Owner" customClass="NSApplication">
@@ -18,11 +19,18 @@
                 <outlet property="boardIDLabel" destination="DZM-eR-XCF" id="iaj-Nx-Kh5"/>
                 <outlet property="bootROMVersionLabel" destination="6rs-sJ-jQI" id="oIl-Gb-VoU"/>
                 <outlet property="buildNumberLabel" destination="wb4-OV-SUX" id="WoO-HY-cFr"/>
+                <outlet property="buildUpToDateImage" destination="gSp-NQ-8Fk" id="pkb-gD-aAQ"/>
+                <outlet property="buildUpToDateLabel" destination="SPj-D2-Oec" id="UZh-wn-OXE"/>
+                <outlet property="firmwareUpToDateImage" destination="m52-4d-ivK" id="V9I-6V-bH5"/>
+                <outlet property="firmwareUpToDateLabel" destination="cEJ-Ky-bEc" id="Sr0-lb-zkx"/>
                 <outlet property="getEFIReportButton" destination="Nqb-5j-h8F" id="BiW-7r-ijn"/>
                 <outlet property="hardwareVersionLabel" destination="M38-dy-pci" id="edK-4E-Akc"/>
                 <outlet property="logo" destination="VLO-64-P6o" id="hlp-K9-N66"/>
+                <outlet property="osUpToDateImage" destination="sBX-bS-vOz" id="Zia-bJ-Cem"/>
+                <outlet property="osUpToDateLabel" destination="2Jm-qB-ZbD" id="pCM-ze-Hpl"/>
                 <outlet property="osVersionLabel" destination="diN-nb-721" id="bce-Ku-5WC"/>
                 <outlet property="progressIndicator" destination="tZu-iW-ZNz" id="4Ax-mO-5gT"/>
+                <outlet property="resultsView" destination="9Pf-M7-NcH" id="w9d-FU-OxP"/>
                 <outlet property="smcVersionLabel" destination="cDl-5H-UhF" id="UIr-G4-8Cj"/>
                 <outlet property="window" destination="QvC-M9-y7g" id="gIp-Ho-8D9"/>
             </connections>
@@ -693,7 +701,7 @@
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="335" y="390" width="350" height="460"/>
-            <rect key="screenRect" x="0.0" y="0.0" width="1680" height="1027"/>
+            <rect key="screenRect" x="0.0" y="0.0" width="1680" height="1050"/>
             <value key="minSize" type="size" width="350" height="460"/>
             <value key="maxSize" type="size" width="350" height="460"/>
             <view key="contentView" wantsLayer="YES" id="EiT-Mj-1SZ">
@@ -846,6 +854,54 @@
                         <rect key="frame" x="159" y="214" width="32" height="32"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                     </progressIndicator>
+                    <customView hidden="YES" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="9Pf-M7-NcH">
+                        <rect key="frame" x="0.0" y="86" width="350" height="179"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <subviews>
+                            <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="SPj-D2-Oec">
+                                <rect key="frame" x="88" y="80" width="212" height="19"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Label" id="6tZ-7y-QYo">
+                                    <font key="font" metaFont="systemSemibold" size="16"/>
+                                    <color key="textColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                    <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                                </textFieldCell>
+                            </textField>
+                            <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="2Jm-qB-ZbD">
+                                <rect key="frame" x="88" y="44" width="212" height="19"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Label" id="03c-wv-umz">
+                                    <font key="font" metaFont="systemSemibold" size="16"/>
+                                    <color key="textColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                    <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                                </textFieldCell>
+                            </textField>
+                            <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="cEJ-Ky-bEc">
+                                <rect key="frame" x="88" y="116" width="212" height="19"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Label" id="rx2-GM-zmb">
+                                    <font key="font" metaFont="systemSemibold" size="16"/>
+                                    <color key="textColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                    <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                                </textFieldCell>
+                            </textField>
+                            <imageView horizontalHuggingPriority="251" verticalHuggingPriority="251" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="m52-4d-ivK">
+                                <rect key="frame" x="53" y="116" width="19" height="19"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="NSCaution" id="QzH-gq-CxC"/>
+                            </imageView>
+                            <imageView horizontalHuggingPriority="251" verticalHuggingPriority="251" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="gSp-NQ-8Fk">
+                                <rect key="frame" x="53" y="80" width="19" height="19"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="NSCaution" id="Bfw-gs-Y02"/>
+                            </imageView>
+                            <imageView horizontalHuggingPriority="251" verticalHuggingPriority="251" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="sBX-bS-vOz">
+                                <rect key="frame" x="53" y="44" width="19" height="19"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="NSCaution" id="e3F-in-dwD"/>
+                            </imageView>
+                        </subviews>
+                    </customView>
                 </subviews>
             </view>
             <point key="canvasLocation" x="178" y="-133"/>
@@ -853,5 +909,6 @@
     </objects>
     <resources>
         <image name="AppIcon" width="128" height="128"/>
+        <image name="NSCaution" width="32" height="32"/>
     </resources>
 </document>
