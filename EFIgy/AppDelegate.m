@@ -328,7 +328,7 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
                             self.osVersion];
 
             self.firmwareUpToDateLabel.stringValue = @"Firmware up-to-date";
-            self.buildUpToDateLabel.stringValue = @"Running highest OS build";
+            self.buildUpToDateLabel.stringValue = @"Running latest OS build";
             self.osUpToDateLabel.stringValue = @"Running latest OS version";
 
             self.firmwareUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
@@ -379,7 +379,7 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
                 buildUpToDateTT = [NSString stringWithFormat:
                                    @"Running expected build number: %@",
                                    self.buildNumber];
-                self.buildUpToDateLabel.stringValue = @"Running highest OS build";
+                self.buildUpToDateLabel.stringValue = @"Running latest OS build";
                 self.buildUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
             }
 
