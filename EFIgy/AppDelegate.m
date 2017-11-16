@@ -111,7 +111,6 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     
     io_registry_entry_t ioRegistryRoot = IORegistryEntryFromPath(kIOMasterPortDefault, "IOService:/");
     CFStringRef uuidCf = (CFStringRef)IORegistryEntryCreateCFProperty(ioRegistryRoot, CFSTR(kIOPlatformUUIDKey), kCFAllocatorDefault, 0);
-    CFShow(uuidCf);
     IOObjectRelease(ioRegistryRoot);
     NSString *uuid = (__bridge NSString *)uuidCf;
 
@@ -142,8 +141,7 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
                                                  bufferLength,
                                                  kCFStringEncodingUTF8,
                                                  TRUE);
-    CFShow(string);
-    NSString *result = (__bridge NSString *)string;
+    NSString *result = [(__bridge NSString *)string copy];
     free(buffer);
     CFRelease(data);
     CFRelease(string);
@@ -411,12 +409,14 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
         [self.transparentBlackView removeFromSuperview];
         self.resultsView.hidden = NO;
         [self.resultsView setWantsLayer:YES];
-        self.resultsView.layer.backgroundColor = CGColorCreateGenericRGB(0.0, 0.0, 0.0, 0.6);
+        CGColorRef color = CGColorCreateGenericRGB(0.0, 0.0, 0.0, 0.6);
+        self.resultsView.layer.backgroundColor = color;
         self.resultsView.layerUsesCoreImageFilters = YES;
         CIFilter *filter = [CIFilter filterWithName:@"CIGaussianBlur"];
         [filter setDefaults];
         [filter setValue:[NSNumber numberWithFloat:5.0f] forKey:kCIInputRadiusKey];
         self.resultsView.backgroundFilters = @[filter];
+        CFRelease(color);
     });
 }
 
