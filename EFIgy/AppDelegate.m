@@ -424,6 +424,7 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
 {
     self.getEFIReportButton.enabled = NO;
     self.progressIndicator.hidden = NO;
+    self.progressIndicator.layer.zPosition = 5;
     [self.progressIndicator startAnimation:self];
 
     self.transparentBlackView = [[NSView alloc] initWithFrame:[[self.window contentView] frame]];
