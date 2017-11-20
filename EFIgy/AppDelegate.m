@@ -22,6 +22,8 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
 {
+    _window.backgroundColor = [NSColor whiteColor];
+
     self.boardID = [[self class] getBoardID];
     self.bootROMVersion = [[self class] getBootROMVersion];
     self.machineModel = [[self class] getMachineModel];
@@ -36,8 +38,6 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     _smcVersionLabel.stringValue = self.smcVersion;
     _osVersionLabel.stringValue = self.osVersion;
     _buildNumberLabel.stringValue = self.buildNumber;
-    
-    _window.backgroundColor = [NSColor whiteColor];
 }
 
 - (void)applicationWillTerminate:(NSNotification *)aNotification
@@ -61,23 +61,47 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
 
 + (NSString *)getBootROMVersion
 {
-    // TODO: Figure out how to do this without `system_profiler`.
-    // IOService : IORegistryEntry : OSObject
-    NSString *outputPlist = [[self class] runCommandAndReturnOutput:@"/usr/sbin/system_profiler"
-                                                           withArgs:@[@"-xml", @"SPHardwareDataType"]];
-    NSArray *plist = [[self class] plistFromString:outputPlist];
-    NSString *bootROMVersion = plist[0][@"_items"][0][@"boot_rom_version"];
+    NSString *param = @"version";
+    NSString *path = @"IODeviceTree:/rom";
+    CFStringRef parameter = (__bridge CFStringRef)param;
+    CFDataRef data;
+    io_service_t sv = IORegistryEntryFromPath(kIOMasterPortDefault,
+                                              (const char *)[path UTF8String]);
+    data = IORegistryEntryCreateCFProperty(sv,
+                                           parameter,
+                                           kCFAllocatorDefault, 0);
+    IOObjectRelease(sv);
+    CFIndex bufferLength = CFDataGetLength(data);
+    UInt8 *buffer = malloc(bufferLength);
+    CFDataGetBytes(data, CFRangeMake(0, bufferLength), (UInt8 *)buffer);
+    CFStringRef string = CFStringCreateWithBytes(kCFAllocatorDefault,
+                                                 buffer,
+                                                 bufferLength,
+                                                 kCFStringEncodingUTF8,
+                                                 TRUE);
+    NSArray *arr = [(__bridge NSString *)string componentsSeparatedByString:@"."];
+    NSString *bootROMVersion = [NSString stringWithFormat:@"%@.%@.%@", arr[0], arr[2], arr[3]];
+    free(buffer);
+    CFRelease(data);
+    CFRelease(string);
     
     return bootROMVersion;
 }
 
 + (NSString *)getSMCVersion
 {
-    // TODO: Figure out how to do this without `system_profiler`.
-    NSString *outputPlist = [[self class] runCommandAndReturnOutput:@"/usr/sbin/system_profiler"
-                                                           withArgs:@[@"-xml", @"SPHardwareDataType"]];
-    NSArray *plist = [[self class] plistFromString:outputPlist];
-    NSString *smcVersion = plist[0][@"_items"][0][@"SMC_version_system"];
+    NSString *param = @"smc-version";
+    NSString *ioService = @"AppleSMC";
+    CFStringRef parameter = (__bridge CFStringRef)param;
+    CFStringRef string;
+    io_service_t sv = IOServiceGetMatchingService(kIOMasterPortDefault,
+                                                  IOServiceMatching((const char *)[ioService UTF8String]));
+    string = IORegistryEntryCreateCFProperty(sv,
+                                             parameter,
+                                             kCFAllocatorDefault, 0);
+    IOObjectRelease(sv);
+    NSString *smcVersion = [(__bridge NSString *)string copy];
+    CFRelease(string);
     
     return smcVersion;
 }
@@ -127,12 +151,12 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
 {
     CFStringRef parameter = (__bridge CFStringRef)param;
     CFDataRef data;
-    io_service_t platformExpert = IOServiceGetMatchingService(kIOMasterPortDefault,
-                                                              IOServiceMatching((const char *)[ioService UTF8String]));
-    data = IORegistryEntryCreateCFProperty(platformExpert,
+    io_service_t sv = IOServiceGetMatchingService(kIOMasterPortDefault,
+                                                  IOServiceMatching((const char *)[ioService UTF8String]));
+    data = IORegistryEntryCreateCFProperty(sv,
                                            parameter,
                                            kCFAllocatorDefault, 0);
-    IOObjectRelease(platformExpert);
+    IOObjectRelease(sv);
     CFIndex bufferLength = CFDataGetLength(data);
     UInt8 *buffer = malloc(bufferLength);
     CFDataGetBytes(data, CFRangeMake(0, bufferLength), (UInt8 *)buffer);
