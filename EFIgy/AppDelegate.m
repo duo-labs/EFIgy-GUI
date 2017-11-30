@@ -54,9 +54,7 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
 + (NSString *)getMachineModel
 {
     // IOPlatformExpertDevice : IOService : IORegistryEntry : OSObject
-    return [[[self class] getIOKitData:@"IOPlatformExpertDevice"
-                             withParam:@"model"]
-  stringByReplacingOccurrencesOfString:@"\00" withString:@""];
+    return [[self class] getIOKitData:@"IOPlatformExpertDevice" withParam:@"model"];
 }
 
 + (NSString *)getBootROMVersion
@@ -85,7 +83,7 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     CFRelease(data);
     CFRelease(string);
     
-    return bootROMVersion;
+    return [bootROMVersion stringByReplacingOccurrencesOfString:@"\00" withString:@""];
 }
 
 + (NSString *)getSMCVersion
@@ -103,7 +101,7 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     NSString *smcVersion = [(__bridge NSString *)string copy];
     CFRelease(string);
     
-    return smcVersion;
+    return [smcVersion stringByReplacingOccurrencesOfString:@"\00" withString:@""];
 }
 
 + (NSString *)getOSVersion
@@ -170,7 +168,7 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     CFRelease(data);
     CFRelease(string);
     
-    return result;
+    return [result stringByReplacingOccurrencesOfString:@"\00" withString:@""];
 }
 
 + (NSString *)runCommandAndReturnOutput:(NSString *)launchPath withArgs:(NSArray *)args
@@ -294,7 +292,7 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
 - (BOOL)checkFirmwareVersions
 {
     if ([self validateResponse:self.results[@"latest_efi_version"]]) {
-        if (self.results[@"latest_efi_version"][@"msg"] == self.bootROMVersion) {
+        if ([self.results[@"latest_efi_version"][@"msg"] isEqualToString:self.bootROMVersion]) {
             return YES;
         }
     }
@@ -304,7 +302,7 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
 - (BOOL)checkHighestBuild
 {
     if ([self validateResponse:self.results[@"latest_build_number"]]) {
-        if (self.results[@"latest_build_number"][@"msg"] == self.buildNumber) {
+        if ([self.results[@"latest_build_number"][@"msg"] isEqualToString:self.buildNumber]) {
             return YES;
         }
     }
@@ -314,7 +312,7 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
 - (BOOL)checkOSUpToDate
 {
     if ([self validateResponse:self.results[@"latest_os_version"]]) {
-        if (self.results[@"latest_os_version"][@"msg"] == self.osVersion) {
+        if ([self.results[@"latest_os_version"][@"msg"] isEqualToString:self.osVersion]) {
             return YES;
         }
     }
