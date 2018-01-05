@@ -53,7 +53,6 @@
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="checkForUpdates:" target="bkV-iw-hLF" id="aVg-Bp-Qce"/>
-                                    <binding destination="bkV-iw-hLF" name="target" keyPath="self" id="sJG-ji-ZTi"/>
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="BXD-ey-pnZ"/>
