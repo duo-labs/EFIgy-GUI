@@ -28,5 +28,7 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/duo-labs/EFIgy-GUI/appcast/appcast.xml</string>
 </dict>
 </plist>

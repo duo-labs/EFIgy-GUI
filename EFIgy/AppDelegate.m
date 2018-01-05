@@ -9,6 +9,7 @@
 #import "AppDelegate.h"
 #import <CommonCrypto/CommonDigest.h>
 #include <IOKit/IOKitLib.h>
+#import <LetsMove/PFMoveApplication.h>
 #import <QuartzCore/QuartzCore.h>
 
 @interface AppDelegate ()
@@ -19,6 +20,11 @@
 @implementation AppDelegate
 
 static NSString * const kAPIURL = @"https://api.efigy.io";
+
+- (void)applicationWillFinishLaunching:(NSNotification *)notification
+{
+    PFMoveToApplicationsFolderIfNecessary();
+}
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
 {

@@ -14,6 +14,7 @@
 		57291B221F86A479009C7BEE /* EFIgyTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 57291B211F86A479009C7BEE /* EFIgyTests.m */; };
 		57291B2E1F86AC9C009C7BEE /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 57291B2D1F86AC9C009C7BEE /* IOKit.framework */; };
 		57F9E1EE1FB8EF4F0033C6D3 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 57F9E1ED1FB8EF410033C6D3 /* QuartzCore.framework */; };
+		E7C9A9E0EF36ABA99A610CAE /* Pods_EFIgy.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3C5DCF54285F6F23935B75CB /* Pods_EFIgy.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -27,6 +28,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		3C5DCF54285F6F23935B75CB /* Pods_EFIgy.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_EFIgy.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		57291B0A1F86A479009C7BEE /* EFIgy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EFIgy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		57291B0D1F86A479009C7BEE /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		57291B0E1F86A479009C7BEE /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
@@ -40,6 +42,8 @@
 		57291B231F86A479009C7BEE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		57291B2D1F86AC9C009C7BEE /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		57F9E1ED1FB8EF410033C6D3 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		63D2BBAA90E1CA98A4F37E6B /* Pods-EFIgy.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-EFIgy.release.xcconfig"; path = "Pods/Target Support Files/Pods-EFIgy/Pods-EFIgy.release.xcconfig"; sourceTree = "<group>"; };
+		81C2F63B0504A7907B9D7066 /* Pods-EFIgy.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-EFIgy.debug.xcconfig"; path = "Pods/Target Support Files/Pods-EFIgy/Pods-EFIgy.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -49,6 +53,7 @@
 			files = (
 				57F9E1EE1FB8EF4F0033C6D3 /* QuartzCore.framework in Frameworks */,
 				57291B2E1F86AC9C009C7BEE /* IOKit.framework in Frameworks */,
+				E7C9A9E0EF36ABA99A610CAE /* Pods_EFIgy.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -69,6 +74,7 @@
 				57291B201F86A479009C7BEE /* EFIgyTests */,
 				57291B0B1F86A479009C7BEE /* Products */,
 				57291B2C1F86AC9C009C7BEE /* Frameworks */,
+				8572E2EB70688A6EF82FA8FF /* Pods */,
 			);
 			sourceTree = "<group>";
 		};
@@ -109,8 +115,18 @@
 			children = (
 				57F9E1ED1FB8EF410033C6D3 /* QuartzCore.framework */,
 				57291B2D1F86AC9C009C7BEE /* IOKit.framework */,
+				3C5DCF54285F6F23935B75CB /* Pods_EFIgy.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		8572E2EB70688A6EF82FA8FF /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				81C2F63B0504A7907B9D7066 /* Pods-EFIgy.debug.xcconfig */,
+				63D2BBAA90E1CA98A4F37E6B /* Pods-EFIgy.release.xcconfig */,
+			);
+			name = Pods;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -120,9 +136,12 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 57291B261F86A47A009C7BEE /* Build configuration list for PBXNativeTarget "EFIgy" */;
 			buildPhases = (
+				E1D351456D47D1D538DFD9ED /* [CP] Check Pods Manifest.lock */,
 				57291B061F86A479009C7BEE /* Sources */,
 				57291B071F86A479009C7BEE /* Frameworks */,
 				57291B081F86A479009C7BEE /* Resources */,
+				B01B80882ACE63DE6E105B2C /* [CP] Embed Pods Frameworks */,
+				08E6EFDC17B02CD07BDE1FE5 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -208,6 +227,54 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		08E6EFDC17B02CD07BDE1FE5 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "[CP] Copy Pods Resources";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Pods/Target Support Files/Pods-EFIgy/Pods-EFIgy-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		B01B80882ACE63DE6E105B2C /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Pods/Target Support Files/Pods-EFIgy/Pods-EFIgy-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		E1D351456D47D1D538DFD9ED /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_ROOT}/../Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		57291B061F86A479009C7BEE /* Sources */ = {
@@ -354,6 +421,7 @@
 		};
 		57291B271F86A47A009C7BEE /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 81C2F63B0504A7907B9D7066 /* Pods-EFIgy.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = EFIgy/EFIgy.entitlements;
@@ -368,6 +436,7 @@
 		};
 		57291B281F86A47A009C7BEE /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 63D2BBAA90E1CA98A4F37E6B /* Pods-EFIgy.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = EFIgy/EFIgy.entitlements;
