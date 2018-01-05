@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <channel>
+        <title>EFIgy Changelog</title>
+        <description>Most recent changes with links to updates.</description>
+        <language>en</language>
+        <item>
+			<title>Version 1.0.1</title>
+            <description>
+                <![CDATA[
+                <p>Various bug fixes and changes, including:</p>
+
+                <ul>
+                    <li>Fixed a version comparison bug between the API results and local data.</li>
+                    <li>Added the Sparkle framework for automatic updates.</li>
+                    <li>Added the LetsMove framework to handle moving the app to the /Applications folder.</li>
+                </ul>
+                ]]>
+            </description>
+            <pubDate>Fri, 5 Jan 2018 17:00:00 +0000</pubDate>
+            <enclosure url="https://github.com/duo-labs/EFIgy-GUI/releases/download/v1.0.1/EFIgy-GUI-1.0.1.zip" sparkle:version="2" sparkle:shortVersionString="1.0.1" type="application/octet-stream" />
+        </item>
+    </channel>
+</rss>
