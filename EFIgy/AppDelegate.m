@@ -211,6 +211,28 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     return plist;
 }
 
++ (NSNumber *)numberFromHexString:(NSString *)aString
+{
+    if (aString) {
+        NSScanner *scanner;
+        unsigned int tmpInt;
+        scanner = [NSScanner scannerWithString:aString];
+        [scanner scanHexInt:&tmpInt];
+        return [NSNumber numberWithInt:tmpInt];
+    }
+    return nil;
+}
+
++ (NSNumber *)numberFromString:(NSString *)aString
+{
+    if (aString) {
+        NSNumberFormatter *formatter = [[NSNumberFormatter alloc] init];
+        formatter.numberStyle = NSNumberFormatterDecimalStyle;
+        return [formatter numberFromString:aString];
+    }
+    return nil;
+}
+
 - (void)makeAPIGet:(NSString *)endpoint
            success:(void (^)(NSDictionary *responseDict))success
            failure:(void (^)(NSError *error))failure
@@ -305,10 +327,47 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     return NO;
 }
 
+- (BOOL)checkFirmwareVersionGreaterThanKnown
+{
+    if ([self validateResponse:self.results[@"latest_efi_version"]]) {
+        NSArray *apiEFIParts = [self.results[@"latest_efi_version"][@"msg"] componentsSeparatedByString:@"."];
+        NSArray *myEFIParts = [self.bootROMVersion componentsSeparatedByString:@"."];
+        if ((apiEFIParts && (apiEFIParts.count > 0)) && (myEFIParts && (myEFIParts.count > 0))) {
+            NSNumber *apiEFIVersion = [[self class] numberFromHexString:apiEFIParts[1]];
+            NSNumber *myEFIVersion = [[self class] numberFromHexString:myEFIParts[1]];
+            NSNumber *apiEFIBuild = [[self class] numberFromString:
+                                     [apiEFIParts[2] stringByReplacingOccurrencesOfString:@"B"
+                                                                               withString:@""]];
+            NSNumber *myEFIBuild = [[self class] numberFromString:
+                                    [myEFIParts[2] stringByReplacingOccurrencesOfString:@"B"
+                                                                             withString:@""]];
+            if (([myEFIVersion isGreaterThan:apiEFIVersion]) || ([myEFIVersion isEqualToNumber:apiEFIVersion] && [myEFIBuild isGreaterThan:apiEFIBuild])) {
+                return YES;
+            }
+        }
+    }
+    return NO;
+}
+
 - (BOOL)checkHighestBuild
 {
     if ([self validateResponse:self.results[@"latest_build_number"]]) {
         if ([self.results[@"latest_build_number"][@"msg"] isEqualToString:self.buildNumber]) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
+- (BOOL)checkBetaBuild
+{
+    if ([self validateResponse:self.results[@"latest_build_number"]]) {
+        // If the build number ends with a letter it's a beta/development build.
+        NSString *lastCharacter = [self.buildNumber substringFromIndex:[self.buildNumber length] - 1];
+        NSCharacterSet *letters = [NSCharacterSet characterSetWithCharactersInString:@"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"];
+        letters = [letters invertedSet];
+        NSRange range = [lastCharacter rangeOfCharacterFromSet:letters];
+        if (range.location == NSNotFound) {
             return YES;
         }
     }
@@ -325,15 +384,30 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     return NO;
 }
 
+- (BOOL)checkOSGreaterThanKnown
+{
+    if ([self validateResponse:self.results[@"latest_os_version"]]) {
+        NSString *apiVersion = self.results[@"latest_os_version"][@"msg"];
+        if ([self.osVersion compare:apiVersion options:NSNumericSearch] == NSOrderedDescending) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
 - (void)updateUI
 {
     BOOL firmwareBeingUpdated = NO;
     BOOL firmwareUpToDate = NO;
+    BOOL firmwareVersionGreaterThanKnown = NO;
     if ([self checkFirmwareBeingUpdated]) {
         firmwareBeingUpdated = YES;
         firmwareUpToDate = [self checkFirmwareVersions];
+        firmwareVersionGreaterThanKnown = [self checkFirmwareVersionGreaterThanKnown];
     }
+    BOOL runningBetaBuild = [self checkBetaBuild];
     BOOL runningHighestBuild = [self checkHighestBuild];
+    BOOL osGreaterThanKnown = [self checkOSGreaterThanKnown];
     BOOL osUpToDate = [self checkOSUpToDate];
 
     __block NSString *firmwareUpToDateTT;
@@ -341,25 +415,75 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     __block NSString *osUpToDateTT;
 
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (firmwareBeingUpdated && firmwareUpToDate && runningHighestBuild && osUpToDate) {
+        if (firmwareBeingUpdated && (firmwareUpToDate || firmwareVersionGreaterThanKnown) && (runningHighestBuild || runningBetaBuild) && (osUpToDate || osGreaterThanKnown)) {
             self.logo.image = [NSImage imageNamed:@"happy"];
-            firmwareUpToDateTT = [NSString stringWithFormat:
-                                  @"Running expected firmware version: %@",
-                                  self.bootROMVersion];
-            buildUpToDateTT = [NSString stringWithFormat:
-                               @"Running expected build number: %@",
-                               self.buildNumber];
-            osUpToDateTT = [NSString stringWithFormat:
-                            @"Running latest OS version: %@",
-                            self.osVersion];
+            if (firmwareVersionGreaterThanKnown) {
+                firmwareUpToDateTT = [NSString stringWithFormat:
+                                      @"Running firmware version %@, which is newer than what we know about (%@).",
+                                      self.bootROMVersion,
+                                      self.results[@"latest_efi_version"][@"msg"]];
+            } else {
+                firmwareUpToDateTT = [NSString stringWithFormat:
+                                      @"Running expected firmware version: %@",
+                                      self.bootROMVersion];
+            }
 
-            self.firmwareUpToDateLabel.stringValue = @"Firmware up-to-date";
-            self.buildUpToDateLabel.stringValue = @"Running latest OS build";
-            self.osUpToDateLabel.stringValue = @"Running latest OS version";
+            if (runningBetaBuild) {
+                buildUpToDateTT = [NSString stringWithFormat:
+                                   @"Running beta build number: %@",
+                                   self.buildNumber];
+            } else {
+                buildUpToDateTT = [NSString stringWithFormat:
+                                   @"Running expected build number: %@",
+                                   self.buildNumber];
+            }
 
-            self.firmwareUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
-            self.buildUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
-            self.osUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
+            if (osGreaterThanKnown) {
+                osUpToDateTT = [NSString stringWithFormat:
+                                @"Running OS version %@, which is newer than what we know about (%@).",
+                                self.osVersion,
+                                self.results[@"latest_os_version"][@"msg"]];
+            } else {
+                osUpToDateTT = [NSString stringWithFormat:
+                                @"Running latest OS version: %@",
+                                self.osVersion];
+            }
+
+            if (firmwareVersionGreaterThanKnown) {
+                self.firmwareUpToDateLabel.stringValue = @"Possible beta firmware";
+            } else {
+                self.firmwareUpToDateLabel.stringValue = @"Firmware up-to-date";
+            }
+
+            if (runningBetaBuild) {
+                self.buildUpToDateLabel.stringValue = @"Running beta OS build";
+            } else {
+                self.buildUpToDateLabel.stringValue = @"Running latest OS build";
+            }
+
+            if (osGreaterThanKnown) {
+                self.osUpToDateLabel.stringValue = @"Possible beta OS version";
+            } else {
+                self.osUpToDateLabel.stringValue = @"Running latest OS version";
+            }
+
+            if (firmwareVersionGreaterThanKnown) {
+                self.firmwareUpToDateImage.image = [NSImage imageNamed:@"check-circle-blue"];
+            } else {
+                self.firmwareUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
+            }
+
+            if (runningBetaBuild) {
+                self.buildUpToDateImage.image = [NSImage imageNamed:@"check-circle-blue"];
+            } else {
+                self.buildUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
+            }
+
+            if (osGreaterThanKnown) {
+                self.osUpToDateImage.image = [NSImage imageNamed:@"check-circle-blue"];
+            } else {
+                self.osUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
+            }
 
             self.firmwareUpToDateLabel.toolTip = firmwareUpToDateTT;
             self.firmwareUpToDateImage.toolTip = firmwareUpToDateTT;
@@ -369,12 +493,18 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
             self.osUpToDateImage.toolTip = osUpToDateTT;
         } else {
             self.logo.image = [NSImage imageNamed:@"sad"];
-            
-            if (!firmwareBeingUpdated || !firmwareUpToDate) {
+            if (!firmwareBeingUpdated || firmwareVersionGreaterThanKnown || !firmwareUpToDate) {
                 if (!firmwareBeingUpdated) {
                     firmwareUpToDateTT = @"Your Mac model hasn't received any firmware updates.";
                     self.firmwareUpToDateLabel.stringValue = @"EFI updates unavailable";
                     self.firmwareUpToDateImage.image = [NSImage imageNamed:NSImageNameCaution];
+                } else if (!firmwareUpToDate && firmwareVersionGreaterThanKnown) {
+                    firmwareUpToDateTT = [NSString stringWithFormat:
+                                          @"Running firmware version %@, which is newer than what we know about (%@).",
+                                          self.bootROMVersion,
+                                          self.results[@"latest_efi_version"][@"msg"]];
+                    self.firmwareUpToDateLabel.stringValue = @"Possible beta firmware";
+                    self.firmwareUpToDateImage.image = [NSImage imageNamed:@"check-circle-blue"];
                 } else {
                     firmwareUpToDateTT = [NSString stringWithFormat:
                                           @"Expected firmware version: %@\n     Actual firmware version: %@",
@@ -394,7 +524,13 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
             self.firmwareUpToDateLabel.toolTip = firmwareUpToDateTT;
             self.firmwareUpToDateImage.toolTip = firmwareUpToDateTT;
 
-            if (!runningHighestBuild) {
+            if (!runningHighestBuild && runningBetaBuild) {
+                buildUpToDateTT = [NSString stringWithFormat:
+                                   @"Running beta build number: %@",
+                                   self.buildNumber];
+                self.buildUpToDateLabel.stringValue = @"Running beta OS build";
+                self.buildUpToDateImage.image = [NSImage imageNamed:@"check-circle-blue"];
+            } else if (!runningHighestBuild && !runningBetaBuild) {
                 buildUpToDateTT = [NSString stringWithFormat:
                                    @"Expected build number: %@\n     Actual build number: %@",
                                    self.results[@"latest_build_number"][@"msg"],
@@ -412,7 +548,14 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
             self.buildUpToDateLabel.toolTip = buildUpToDateTT;
             self.buildUpToDateImage.toolTip = buildUpToDateTT;
 
-            if (!osUpToDate) {
+            if (!osUpToDate && osGreaterThanKnown) {
+                osUpToDateTT = [NSString stringWithFormat:
+                                @"Running OS version %@, which is newer than what we know about (%@).",
+                                self.osVersion,
+                                self.results[@"latest_os_version"][@"msg"]];
+                self.osUpToDateLabel.stringValue = @"Possible beta OS version";
+                self.osUpToDateImage.image = [NSImage imageNamed:@"check-circle-blue"];
+            } else if (!osUpToDate && !osGreaterThanKnown) {
                 osUpToDateTT = [NSString stringWithFormat:
                                 @"Expected OS version: %@\n     Actual OS version: %@",
                                 self.results[@"latest_os_version"][@"msg"],
