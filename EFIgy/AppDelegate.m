@@ -363,7 +363,7 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
 {
     if ([self validateResponse:self.results[@"latest_build_number"]]) {
         // If the build number ends with a letter it's a beta/development build.
-        NSString *lastCharacter = [self.buildNumber substringFromIndex:[self.buildNumber length] - 1];
+        NSString *lastCharacter = [self.buildNumber substringFromIndex:self.buildNumber.length - 1];
         NSCharacterSet *letters = [NSCharacterSet characterSetWithCharactersInString:@"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"];
         letters = [letters invertedSet];
         NSRange range = [lastCharacter rangeOfCharacterFromSet:letters];
@@ -371,6 +371,92 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
             return YES;
         }
     }
+    return NO;
+}
+
+- (BOOL)checkBuildGreaterThanKnown
+{
+    // A = .0
+    // B = .1
+    // C = .2
+    // ...and so on.
+    // Letter in build number corresponds to the patch level, as noted above.
+    // Number following the letter in the build number is the build thereof.
+    // If it's a forked build, the number following the letter will be 4 digits rather than 2, and there will be no security updates.
+    // Beta/development builds always end with a letter.
+    // The regex to match a forked build is [[:alpha:]]{1}[0-9]{4}.
+    // ...and the regex to match a production build is [[:alpha:]]{1}[0-9]{2}.
+    if ([self checkForkedBuild]) {
+        return NO;
+    }
+
+    NSRange searchedRange = NSMakeRange(0, self.buildNumber.length);
+    NSString *pattern = @"[[:alpha:]]{1}[0-9]{2}";
+    NSError *error = nil;
+
+    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern: pattern options:0 error:&error];
+
+    if (error) {
+        NSLog(@"Error parsing build number. Error: %@.", error.localizedDescription);
+        return NO;
+    }
+
+    NSArray *matches = [regex matchesInString:self.buildNumber options:0 range: searchedRange];
+    NSArray *expectedMatches = [regex matchesInString:self.buildNumber options:0 range: searchedRange];
+
+    NSString *expectedBuild = self.results[@"latest_build_number"][@"msg"];
+    NSString *patchLevel = nil;
+    NSString *securityPatchLevel = nil;
+    NSString *expectedPatchLevel = nil;
+    NSString *expectedSecurityPatchLevel = nil;
+
+    for (NSTextCheckingResult *match in matches) {
+        NSString *matchText = [self.buildNumber substringWithRange:[match range]];
+        patchLevel = [matchText substringToIndex:1];
+        securityPatchLevel = [matchText substringFromIndex:1];
+    }
+
+    for (NSTextCheckingResult *match in expectedMatches) {
+        NSString *matchText = [expectedBuild substringWithRange:[match range]];
+        expectedPatchLevel = [matchText substringToIndex:1];
+        expectedSecurityPatchLevel = [matchText substringFromIndex:1];
+    }
+
+    if (patchLevel && securityPatchLevel && expectedPatchLevel && expectedSecurityPatchLevel) {
+        if ([patchLevel compare:expectedPatchLevel] == NSOrderedDescending) {
+            // Current patch level is greater than expected patch level.
+            return YES;
+        } else if ([patchLevel isEqualToString:expectedPatchLevel] && [securityPatchLevel compare:expectedSecurityPatchLevel] == NSOrderedDescending) {
+            // Current patch level is equal to expected patch level,
+            // but security patch level is greater than expected security
+            // patch level.
+            return YES;
+        }
+    }
+
+    return NO;
+}
+
+- (BOOL)checkForkedBuild
+{
+    // Forked builds have 4 digits after the letter corresponding
+    // to the patch, as opposed to 2 digits for production builds.
+    NSRange searchedRange = NSMakeRange(0, self.buildNumber.length);
+    NSString *pattern = @"[[:alpha:]]{1}[0-9]{4}";
+    NSError *error = nil;
+    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:pattern options:0 error:&error];
+
+    if (error) {
+        NSLog(@"Error parsing build number. Error: %@.", error.localizedDescription);
+        return NO;
+    }
+
+    NSArray *matches = [regex matchesInString:self.buildNumber options:0 range:searchedRange];
+
+    if (matches.count > 0) {
+        return YES;
+    }
+
     return NO;
 }
 
@@ -406,6 +492,7 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
         firmwareVersionGreaterThanKnown = [self checkFirmwareVersionGreaterThanKnown];
     }
     BOOL runningBetaBuild = [self checkBetaBuild];
+    BOOL runningBuildGreaterThanKnown = [self checkBuildGreaterThanKnown];
     BOOL runningHighestBuild = [self checkHighestBuild];
     BOOL osGreaterThanKnown = [self checkOSGreaterThanKnown];
     BOOL osUpToDate = [self checkOSUpToDate];
@@ -415,7 +502,11 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     __block NSString *osUpToDateTT;
 
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (firmwareBeingUpdated && (firmwareUpToDate || firmwareVersionGreaterThanKnown) && (runningHighestBuild || runningBetaBuild) && (osUpToDate || osGreaterThanKnown)) {
+        if (firmwareBeingUpdated &&
+            (firmwareUpToDate || firmwareVersionGreaterThanKnown) &&
+            (runningHighestBuild || runningBetaBuild || runningBuildGreaterThanKnown) &&
+            (osUpToDate || osGreaterThanKnown)) {
+
             self.logo.image = [NSImage imageNamed:@"happy"];
             if (firmwareVersionGreaterThanKnown) {
                 firmwareUpToDateTT = [NSString stringWithFormat:
@@ -432,6 +523,11 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
                 buildUpToDateTT = [NSString stringWithFormat:
                                    @"Running beta build number: %@",
                                    self.buildNumber];
+            } else if (runningBuildGreaterThanKnown) {
+                buildUpToDateTT = [NSString stringWithFormat:
+                                   @"Running build number %@, which is newer than what we know about (%@).",
+                                   self.buildNumber,
+                                   self.results[@"latest_build_number"][@"msg"]];
             } else {
                 buildUpToDateTT = [NSString stringWithFormat:
                                    @"Running expected build number: %@",
@@ -450,19 +546,21 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
             }
 
             if (firmwareVersionGreaterThanKnown) {
-                self.firmwareUpToDateLabel.stringValue = @"Possible beta firmware";
+                self.firmwareUpToDateLabel.stringValue = @"Running newer firmware";
             } else {
                 self.firmwareUpToDateLabel.stringValue = @"Firmware up-to-date";
             }
 
             if (runningBetaBuild) {
                 self.buildUpToDateLabel.stringValue = @"Running beta OS build";
+            } else if (runningBuildGreaterThanKnown) {
+                self.buildUpToDateLabel.stringValue = @"Running newer OS build";
             } else {
                 self.buildUpToDateLabel.stringValue = @"Running latest OS build";
             }
 
             if (osGreaterThanKnown) {
-                self.osUpToDateLabel.stringValue = @"Possible beta OS version";
+                self.osUpToDateLabel.stringValue = @"Running newer OS version";
             } else {
                 self.osUpToDateLabel.stringValue = @"Running latest OS version";
             }
@@ -473,7 +571,7 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
                 self.firmwareUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
             }
 
-            if (runningBetaBuild) {
+            if (runningBetaBuild || runningBuildGreaterThanKnown) {
                 self.buildUpToDateImage.image = [NSImage imageNamed:@"check-circle-blue"];
             } else {
                 self.buildUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
@@ -503,7 +601,7 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
                                           @"Running firmware version %@, which is newer than what we know about (%@).",
                                           self.bootROMVersion,
                                           self.results[@"latest_efi_version"][@"msg"]];
-                    self.firmwareUpToDateLabel.stringValue = @"Possible beta firmware";
+                    self.firmwareUpToDateLabel.stringValue = @"Running newer firmware";
                     self.firmwareUpToDateImage.image = [NSImage imageNamed:@"check-circle-blue"];
                 } else {
                     firmwareUpToDateTT = [NSString stringWithFormat:
@@ -524,25 +622,32 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
             self.firmwareUpToDateLabel.toolTip = firmwareUpToDateTT;
             self.firmwareUpToDateImage.toolTip = firmwareUpToDateTT;
 
-            if (!runningHighestBuild && runningBetaBuild) {
+            if (runningBetaBuild) {
                 buildUpToDateTT = [NSString stringWithFormat:
                                    @"Running beta build number: %@",
                                    self.buildNumber];
                 self.buildUpToDateLabel.stringValue = @"Running beta OS build";
                 self.buildUpToDateImage.image = [NSImage imageNamed:@"check-circle-blue"];
-            } else if (!runningHighestBuild && !runningBetaBuild) {
+            } else if (runningBuildGreaterThanKnown) {
+                buildUpToDateTT = [NSString stringWithFormat:
+                                   @"Running build number %@, which is newer than what we know about (%@).",
+                                   self.buildNumber,
+                                   self.results[@"latest_build_number"][@"msg"]];
+                self.buildUpToDateLabel.stringValue = @"Running newer OS build";
+                self.buildUpToDateImage.image = [NSImage imageNamed:@"check-circle-blue"];
+            } else if (runningHighestBuild) {
+                buildUpToDateTT = [NSString stringWithFormat:
+                                   @"Running expected build number: %@",
+                                   self.buildNumber];
+                self.buildUpToDateLabel.stringValue = @"Running latest OS build";
+                self.buildUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
+            } else {
                 buildUpToDateTT = [NSString stringWithFormat:
                                    @"Expected build number: %@\n     Actual build number: %@",
                                    self.results[@"latest_build_number"][@"msg"],
                                    self.buildNumber];
                 self.buildUpToDateLabel.stringValue = @"OS build out-of-date";
                 self.buildUpToDateImage.image = [NSImage imageNamed:NSImageNameCaution];
-            } else {
-                buildUpToDateTT = [NSString stringWithFormat:
-                                   @"Running expected build number: %@",
-                                   self.buildNumber];
-                self.buildUpToDateLabel.stringValue = @"Running latest OS build";
-                self.buildUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
             }
 
             self.buildUpToDateLabel.toolTip = buildUpToDateTT;
@@ -553,7 +658,7 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
                                 @"Running OS version %@, which is newer than what we know about (%@).",
                                 self.osVersion,
                                 self.results[@"latest_os_version"][@"msg"]];
-                self.osUpToDateLabel.stringValue = @"Possible beta OS version";
+                self.osUpToDateLabel.stringValue = @"Running newer OS version";
                 self.osUpToDateImage.image = [NSImage imageNamed:@"check-circle-blue"];
             } else if (!osUpToDate && !osGreaterThanKnown) {
                 osUpToDateTT = [NSString stringWithFormat:
