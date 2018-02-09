@@ -37,7 +37,7 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     self.osVersion = [[self class] getOSVersion];
     self.buildNumber = [[self class] getBuildNumber];
     self.hashedSysUUID = [[self class] getHashedSysUUID];
-    
+
     _boardIDLabel.stringValue = self.boardID;
     _bootROMVersionLabel.stringValue = self.bootROMVersion;
     _hardwareVersionLabel.stringValue = self.machineModel;
@@ -361,6 +361,12 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
 
 - (BOOL)checkBetaBuild
 {
+    // Current beta builds will have a higher patch level and/or security patch level, just
+    // as the logic goes for determining whether a build is greater than what we know about.
+    // The difference is that beta builds will always end with a letter. So, if a beta build
+    // has a lower patch level or security patch level than what we know about, it's likely
+    // an out-of-date beta build. Note, however, that right now we just check whether the
+    // build ends with a letter.
     if ([self validateResponse:self.results[@"latest_build_number"]]) {
         // If the build number ends with a letter it's a beta/development build.
         NSString *lastCharacter = [self.buildNumber substringFromIndex:self.buildNumber.length - 1];
@@ -376,87 +382,49 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
 
 - (BOOL)checkBuildGreaterThanKnown
 {
-    // A = .0
-    // B = .1
-    // C = .2
-    // ...and so on.
-    // Letter in build number corresponds to the patch level, as noted above.
-    // Number following the letter in the build number is the build thereof.
-    // If it's a forked build, the number following the letter will be 4 digits rather than 2, and there will be no security updates.
-    // Beta/development builds always end with a letter.
-    // The regex to match a forked build is [[:alpha:]]{1}[0-9]{4}.
-    // ...and the regex to match a production build is [[:alpha:]]{1}[0-9]{2}.
-    if ([self checkForkedBuild]) {
+    /*
+         A = .0
+         B = .1
+         C = .2
+         ...and so on.
+         Letter in build number corresponds to the patch level, as noted above.
+         Number following the letter in the build number is the build thereof. This
+         can be 2, 3, 4, or 5 digits. If it's a forked build, the number following
+         the letter will be 4 digits, but not all 4 digit builds are forked builds.
+         Beta/development builds always end with a letter. We can determine if a
+         build is newer than what's returned from the EFIgy API by first checking if
+         the letter is higher, (e.g., D > C). If the letter is the same, we check if
+         the build number is higher.
+    */
+    if ([self checkBetaBuild]) {
         return NO;
     }
-
-    NSRange searchedRange = NSMakeRange(0, self.buildNumber.length);
-    NSString *pattern = @"[[:alpha:]]{1}[0-9]{2}";
-    NSError *error = nil;
-
-    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern: pattern options:0 error:&error];
-
-    if (error) {
-        NSLog(@"Error parsing build number. Error: %@.", error.localizedDescription);
-        return NO;
-    }
-
-    NSArray *matches = [regex matchesInString:self.buildNumber options:0 range: searchedRange];
-    NSArray *expectedMatches = [regex matchesInString:self.buildNumber options:0 range: searchedRange];
-
     NSString *expectedBuild = self.results[@"latest_build_number"][@"msg"];
-    NSString *patchLevel = nil;
-    NSString *securityPatchLevel = nil;
-    NSString *expectedPatchLevel = nil;
-    NSString *expectedSecurityPatchLevel = nil;
-
-    for (NSTextCheckingResult *match in matches) {
-        NSString *matchText = [self.buildNumber substringWithRange:[match range]];
-        patchLevel = [matchText substringToIndex:1];
-        securityPatchLevel = [matchText substringFromIndex:1];
-    }
-
-    for (NSTextCheckingResult *match in expectedMatches) {
-        NSString *matchText = [expectedBuild substringWithRange:[match range]];
-        expectedPatchLevel = [matchText substringToIndex:1];
-        expectedSecurityPatchLevel = [matchText substringFromIndex:1];
-    }
-
-    if (patchLevel && securityPatchLevel && expectedPatchLevel && expectedSecurityPatchLevel) {
-        if ([patchLevel compare:expectedPatchLevel] == NSOrderedDescending) {
-            // Current patch level is greater than expected patch level.
-            return YES;
-        } else if ([patchLevel isEqualToString:expectedPatchLevel] && [securityPatchLevel compare:expectedSecurityPatchLevel] == NSOrderedDescending) {
-            // Current patch level is equal to expected patch level,
-            // but security patch level is greater than expected security
-            // patch level.
-            return YES;
+    NSRange actualRange = [self.buildNumber rangeOfCharacterFromSet:[NSCharacterSet letterCharacterSet]];
+    NSRange expectedRange = [expectedBuild rangeOfCharacterFromSet:[NSCharacterSet letterCharacterSet]];
+    if (actualRange.location != NSNotFound && expectedRange.location != NSNotFound) {
+        if ([[self.buildNumber substringFromIndex:actualRange.location] length] > 1 &&
+            [[expectedBuild substringFromIndex:expectedRange.location] length] > 1) {
+            // Assuming the current build number is 17D47, `patchLevel` would return "D",
+            // and `securityPatchLevel` would contain "47".
+            NSString *patchLevel = [self.buildNumber substringWithRange:actualRange];
+            NSString *securityPatchLevel = [self.buildNumber substringFromIndex:actualRange.location + 1];
+            NSString *expectedPatchLevel = [expectedBuild substringWithRange:expectedRange];
+            NSString *expectedSecurityPatchLevel = [expectedBuild substringFromIndex:actualRange.location + 1];
+            if (patchLevel && securityPatchLevel && expectedPatchLevel && expectedSecurityPatchLevel) {
+                if ([patchLevel compare:expectedPatchLevel] == NSOrderedDescending) {
+                    // Current patch level is greater than expected patch level,
+                    // (e.g., D > C).
+                    return YES;
+                } else if ([patchLevel isEqualToString:expectedPatchLevel] && [securityPatchLevel compare:expectedSecurityPatchLevel] == NSOrderedDescending) {
+                    // Current patch level is equal to expected patch level,
+                    // but security patch level is greater than expected security
+                    // patch level, (e.g., D480 > D47, because D == D && 480 > 47).
+                    return YES;
+                }
+            }
         }
     }
-
-    return NO;
-}
-
-- (BOOL)checkForkedBuild
-{
-    // Forked builds have 4 digits after the letter corresponding
-    // to the patch, as opposed to 2 digits for production builds.
-    NSRange searchedRange = NSMakeRange(0, self.buildNumber.length);
-    NSString *pattern = @"[[:alpha:]]{1}[0-9]{4}";
-    NSError *error = nil;
-    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:pattern options:0 error:&error];
-
-    if (error) {
-        NSLog(@"Error parsing build number. Error: %@.", error.localizedDescription);
-        return NO;
-    }
-
-    NSArray *matches = [regex matchesInString:self.buildNumber options:0 range:searchedRange];
-
-    if (matches.count > 0) {
-        return YES;
-    }
-
     return NO;
 }
 
