@@ -37,7 +37,7 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     self.osVersion = [[self class] getOSVersion];
     self.buildNumber = [[self class] getBuildNumber];
     self.hashedSysUUID = [[self class] getHashedSysUUID];
-    
+
     _boardIDLabel.stringValue = self.boardID;
     _bootROMVersionLabel.stringValue = self.bootROMVersion;
     _hardwareVersionLabel.stringValue = self.machineModel;
@@ -211,6 +211,28 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     return plist;
 }
 
++ (NSNumber *)numberFromHexString:(NSString *)aString
+{
+    if (aString) {
+        NSScanner *scanner;
+        unsigned int tmpInt;
+        scanner = [NSScanner scannerWithString:aString];
+        [scanner scanHexInt:&tmpInt];
+        return [NSNumber numberWithInt:tmpInt];
+    }
+    return nil;
+}
+
++ (NSNumber *)numberFromString:(NSString *)aString
+{
+    if (aString) {
+        NSNumberFormatter *formatter = [[NSNumberFormatter alloc] init];
+        formatter.numberStyle = NSNumberFormatterDecimalStyle;
+        return [formatter numberFromString:aString];
+    }
+    return nil;
+}
+
 - (void)makeAPIGet:(NSString *)endpoint
            success:(void (^)(NSDictionary *responseDict))success
            failure:(void (^)(NSError *error))failure
@@ -305,11 +327,102 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     return NO;
 }
 
+- (BOOL)checkFirmwareVersionGreaterThanKnown
+{
+    if ([self validateResponse:self.results[@"latest_efi_version"]]) {
+        NSArray *apiEFIParts = [self.results[@"latest_efi_version"][@"msg"] componentsSeparatedByString:@"."];
+        NSArray *myEFIParts = [self.bootROMVersion componentsSeparatedByString:@"."];
+        if ((apiEFIParts && (apiEFIParts.count > 0)) && (myEFIParts && (myEFIParts.count > 0))) {
+            NSNumber *apiEFIVersion = [[self class] numberFromHexString:apiEFIParts[1]];
+            NSNumber *myEFIVersion = [[self class] numberFromHexString:myEFIParts[1]];
+            NSNumber *apiEFIBuild = [[self class] numberFromString:
+                                     [apiEFIParts[2] stringByReplacingOccurrencesOfString:@"B"
+                                                                               withString:@""]];
+            NSNumber *myEFIBuild = [[self class] numberFromString:
+                                    [myEFIParts[2] stringByReplacingOccurrencesOfString:@"B"
+                                                                             withString:@""]];
+            if (([myEFIVersion isGreaterThan:apiEFIVersion]) || ([myEFIVersion isEqualToNumber:apiEFIVersion] && [myEFIBuild isGreaterThan:apiEFIBuild])) {
+                return YES;
+            }
+        }
+    }
+    return NO;
+}
+
 - (BOOL)checkHighestBuild
 {
     if ([self validateResponse:self.results[@"latest_build_number"]]) {
         if ([self.results[@"latest_build_number"][@"msg"] isEqualToString:self.buildNumber]) {
             return YES;
+        }
+    }
+    return NO;
+}
+
+- (BOOL)checkBetaBuild
+{
+    // Current beta builds will have a higher patch level and/or security patch level, just
+    // as the logic goes for determining whether a build is greater than what we know about.
+    // The difference is that beta builds will always end with a letter. So, if a beta build
+    // has a lower patch level or security patch level than what we know about, it's likely
+    // an out-of-date beta build. Note, however, that right now we just check whether the
+    // build ends with a letter.
+    if ([self validateResponse:self.results[@"latest_build_number"]]) {
+        // If the build number ends with a letter it's a beta/development build.
+        NSString *lastCharacter = [self.buildNumber substringFromIndex:self.buildNumber.length - 1];
+        NSCharacterSet *letters = [NSCharacterSet characterSetWithCharactersInString:@"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"];
+        letters = [letters invertedSet];
+        NSRange range = [lastCharacter rangeOfCharacterFromSet:letters];
+        if (range.location == NSNotFound) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
+- (BOOL)checkBuildGreaterThanKnown
+{
+    /*
+         A = .0
+         B = .1
+         C = .2
+         ...and so on.
+         Letter in build number corresponds to the patch level, as noted above.
+         Number following the letter in the build number is the build thereof. This
+         can be 2, 3, 4, or 5 digits. If it's a forked build, the number following
+         the letter will be 4 digits, but not all 4 digit builds are forked builds.
+         Beta/development builds always end with a letter. We can determine if a
+         build is newer than what's returned from the EFIgy API by first checking if
+         the letter is higher, (e.g., D > C). If the letter is the same, we check if
+         the build number is higher.
+    */
+    if ([self checkBetaBuild]) {
+        return NO;
+    }
+    NSString *expectedBuild = self.results[@"latest_build_number"][@"msg"];
+    NSRange actualRange = [self.buildNumber rangeOfCharacterFromSet:[NSCharacterSet letterCharacterSet]];
+    NSRange expectedRange = [expectedBuild rangeOfCharacterFromSet:[NSCharacterSet letterCharacterSet]];
+    if (actualRange.location != NSNotFound && expectedRange.location != NSNotFound) {
+        if ([[self.buildNumber substringFromIndex:actualRange.location] length] > 1 &&
+            [[expectedBuild substringFromIndex:expectedRange.location] length] > 1) {
+            // Assuming the current build number is 17D47, `patchLevel` would return "D",
+            // and `securityPatchLevel` would contain "47".
+            NSString *patchLevel = [self.buildNumber substringWithRange:actualRange];
+            NSString *securityPatchLevel = [self.buildNumber substringFromIndex:actualRange.location + 1];
+            NSString *expectedPatchLevel = [expectedBuild substringWithRange:expectedRange];
+            NSString *expectedSecurityPatchLevel = [expectedBuild substringFromIndex:actualRange.location + 1];
+            if (patchLevel && securityPatchLevel && expectedPatchLevel && expectedSecurityPatchLevel) {
+                if ([patchLevel compare:expectedPatchLevel] == NSOrderedDescending) {
+                    // Current patch level is greater than expected patch level,
+                    // (e.g., D > C).
+                    return YES;
+                } else if ([patchLevel isEqualToString:expectedPatchLevel] && [securityPatchLevel compare:expectedSecurityPatchLevel] == NSOrderedDescending) {
+                    // Current patch level is equal to expected patch level,
+                    // but security patch level is greater than expected security
+                    // patch level, (e.g., D480 > D47, because D == D && 480 > 47).
+                    return YES;
+                }
+            }
         }
     }
     return NO;
@@ -325,15 +438,31 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     return NO;
 }
 
+- (BOOL)checkOSGreaterThanKnown
+{
+    if ([self validateResponse:self.results[@"latest_os_version"]]) {
+        NSString *apiVersion = self.results[@"latest_os_version"][@"msg"];
+        if ([self.osVersion compare:apiVersion options:NSNumericSearch] == NSOrderedDescending) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
 - (void)updateUI
 {
     BOOL firmwareBeingUpdated = NO;
     BOOL firmwareUpToDate = NO;
+    BOOL firmwareVersionGreaterThanKnown = NO;
     if ([self checkFirmwareBeingUpdated]) {
         firmwareBeingUpdated = YES;
         firmwareUpToDate = [self checkFirmwareVersions];
+        firmwareVersionGreaterThanKnown = [self checkFirmwareVersionGreaterThanKnown];
     }
+    BOOL runningBetaBuild = [self checkBetaBuild];
+    BOOL runningBuildGreaterThanKnown = [self checkBuildGreaterThanKnown];
     BOOL runningHighestBuild = [self checkHighestBuild];
+    BOOL osGreaterThanKnown = [self checkOSGreaterThanKnown];
     BOOL osUpToDate = [self checkOSUpToDate];
 
     __block NSString *firmwareUpToDateTT;
@@ -341,25 +470,86 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     __block NSString *osUpToDateTT;
 
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (firmwareBeingUpdated && firmwareUpToDate && runningHighestBuild && osUpToDate) {
+        if (firmwareBeingUpdated &&
+            (firmwareUpToDate || firmwareVersionGreaterThanKnown) &&
+            (runningHighestBuild || runningBetaBuild || runningBuildGreaterThanKnown) &&
+            (osUpToDate || osGreaterThanKnown)) {
+
             self.logo.image = [NSImage imageNamed:@"happy"];
-            firmwareUpToDateTT = [NSString stringWithFormat:
-                                  @"Running expected firmware version: %@",
-                                  self.bootROMVersion];
-            buildUpToDateTT = [NSString stringWithFormat:
-                               @"Running expected build number: %@",
-                               self.buildNumber];
-            osUpToDateTT = [NSString stringWithFormat:
-                            @"Running latest OS version: %@",
-                            self.osVersion];
+            if (firmwareVersionGreaterThanKnown) {
+                firmwareUpToDateTT = [NSString stringWithFormat:
+                                      @"Running firmware version %@, which is newer than what we know about (%@).",
+                                      self.bootROMVersion,
+                                      self.results[@"latest_efi_version"][@"msg"]];
+            } else {
+                firmwareUpToDateTT = [NSString stringWithFormat:
+                                      @"Running expected firmware version: %@",
+                                      self.bootROMVersion];
+            }
 
-            self.firmwareUpToDateLabel.stringValue = @"Firmware up-to-date";
-            self.buildUpToDateLabel.stringValue = @"Running latest OS build";
-            self.osUpToDateLabel.stringValue = @"Running latest OS version";
+            if (runningBetaBuild) {
+                buildUpToDateTT = [NSString stringWithFormat:
+                                   @"Running beta build number: %@",
+                                   self.buildNumber];
+            } else if (runningBuildGreaterThanKnown) {
+                buildUpToDateTT = [NSString stringWithFormat:
+                                   @"Running build number %@, which is newer than what we know about (%@).",
+                                   self.buildNumber,
+                                   self.results[@"latest_build_number"][@"msg"]];
+            } else {
+                buildUpToDateTT = [NSString stringWithFormat:
+                                   @"Running expected build number: %@",
+                                   self.buildNumber];
+            }
 
-            self.firmwareUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
-            self.buildUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
-            self.osUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
+            if (osGreaterThanKnown) {
+                osUpToDateTT = [NSString stringWithFormat:
+                                @"Running OS version %@, which is newer than what we know about (%@).",
+                                self.osVersion,
+                                self.results[@"latest_os_version"][@"msg"]];
+            } else {
+                osUpToDateTT = [NSString stringWithFormat:
+                                @"Running latest OS version: %@",
+                                self.osVersion];
+            }
+
+            if (firmwareVersionGreaterThanKnown) {
+                self.firmwareUpToDateLabel.stringValue = @"Running newer firmware";
+            } else {
+                self.firmwareUpToDateLabel.stringValue = @"Firmware up-to-date";
+            }
+
+            if (runningBetaBuild) {
+                self.buildUpToDateLabel.stringValue = @"Running beta OS build";
+            } else if (runningBuildGreaterThanKnown) {
+                self.buildUpToDateLabel.stringValue = @"Running newer OS build";
+            } else {
+                self.buildUpToDateLabel.stringValue = @"Running latest OS build";
+            }
+
+            if (osGreaterThanKnown) {
+                self.osUpToDateLabel.stringValue = @"Running newer OS version";
+            } else {
+                self.osUpToDateLabel.stringValue = @"Running latest OS version";
+            }
+
+            if (firmwareVersionGreaterThanKnown) {
+                self.firmwareUpToDateImage.image = [NSImage imageNamed:@"check-circle-blue"];
+            } else {
+                self.firmwareUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
+            }
+
+            if (runningBetaBuild || runningBuildGreaterThanKnown) {
+                self.buildUpToDateImage.image = [NSImage imageNamed:@"check-circle-blue"];
+            } else {
+                self.buildUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
+            }
+
+            if (osGreaterThanKnown) {
+                self.osUpToDateImage.image = [NSImage imageNamed:@"check-circle-blue"];
+            } else {
+                self.osUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
+            }
 
             self.firmwareUpToDateLabel.toolTip = firmwareUpToDateTT;
             self.firmwareUpToDateImage.toolTip = firmwareUpToDateTT;
@@ -369,12 +559,18 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
             self.osUpToDateImage.toolTip = osUpToDateTT;
         } else {
             self.logo.image = [NSImage imageNamed:@"sad"];
-            
-            if (!firmwareBeingUpdated || !firmwareUpToDate) {
+            if (!firmwareBeingUpdated || firmwareVersionGreaterThanKnown || !firmwareUpToDate) {
                 if (!firmwareBeingUpdated) {
                     firmwareUpToDateTT = @"Your Mac model hasn't received any firmware updates.";
                     self.firmwareUpToDateLabel.stringValue = @"EFI updates unavailable";
                     self.firmwareUpToDateImage.image = [NSImage imageNamed:NSImageNameCaution];
+                } else if (!firmwareUpToDate && firmwareVersionGreaterThanKnown) {
+                    firmwareUpToDateTT = [NSString stringWithFormat:
+                                          @"Running firmware version %@, which is newer than what we know about (%@).",
+                                          self.bootROMVersion,
+                                          self.results[@"latest_efi_version"][@"msg"]];
+                    self.firmwareUpToDateLabel.stringValue = @"Running newer firmware";
+                    self.firmwareUpToDateImage.image = [NSImage imageNamed:@"check-circle-blue"];
                 } else {
                     firmwareUpToDateTT = [NSString stringWithFormat:
                                           @"Expected firmware version: %@\n     Actual firmware version: %@",
@@ -394,25 +590,45 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
             self.firmwareUpToDateLabel.toolTip = firmwareUpToDateTT;
             self.firmwareUpToDateImage.toolTip = firmwareUpToDateTT;
 
-            if (!runningHighestBuild) {
+            if (runningBetaBuild) {
+                buildUpToDateTT = [NSString stringWithFormat:
+                                   @"Running beta build number: %@",
+                                   self.buildNumber];
+                self.buildUpToDateLabel.stringValue = @"Running beta OS build";
+                self.buildUpToDateImage.image = [NSImage imageNamed:@"check-circle-blue"];
+            } else if (runningBuildGreaterThanKnown) {
+                buildUpToDateTT = [NSString stringWithFormat:
+                                   @"Running build number %@, which is newer than what we know about (%@).",
+                                   self.buildNumber,
+                                   self.results[@"latest_build_number"][@"msg"]];
+                self.buildUpToDateLabel.stringValue = @"Running newer OS build";
+                self.buildUpToDateImage.image = [NSImage imageNamed:@"check-circle-blue"];
+            } else if (runningHighestBuild) {
+                buildUpToDateTT = [NSString stringWithFormat:
+                                   @"Running expected build number: %@",
+                                   self.buildNumber];
+                self.buildUpToDateLabel.stringValue = @"Running latest OS build";
+                self.buildUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
+            } else {
                 buildUpToDateTT = [NSString stringWithFormat:
                                    @"Expected build number: %@\n     Actual build number: %@",
                                    self.results[@"latest_build_number"][@"msg"],
                                    self.buildNumber];
                 self.buildUpToDateLabel.stringValue = @"OS build out-of-date";
                 self.buildUpToDateImage.image = [NSImage imageNamed:NSImageNameCaution];
-            } else {
-                buildUpToDateTT = [NSString stringWithFormat:
-                                   @"Running expected build number: %@",
-                                   self.buildNumber];
-                self.buildUpToDateLabel.stringValue = @"Running latest OS build";
-                self.buildUpToDateImage.image = [NSImage imageNamed:@"check-circle"];
             }
 
             self.buildUpToDateLabel.toolTip = buildUpToDateTT;
             self.buildUpToDateImage.toolTip = buildUpToDateTT;
 
-            if (!osUpToDate) {
+            if (!osUpToDate && osGreaterThanKnown) {
+                osUpToDateTT = [NSString stringWithFormat:
+                                @"Running OS version %@, which is newer than what we know about (%@).",
+                                self.osVersion,
+                                self.results[@"latest_os_version"][@"msg"]];
+                self.osUpToDateLabel.stringValue = @"Running newer OS version";
+                self.osUpToDateImage.image = [NSImage imageNamed:@"check-circle-blue"];
+            } else if (!osUpToDate && !osGreaterThanKnown) {
                 osUpToDateTT = [NSString stringWithFormat:
                                 @"Expected OS version: %@\n     Actual OS version: %@",
                                 self.results[@"latest_os_version"][@"msg"],
