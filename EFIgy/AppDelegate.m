@@ -411,12 +411,14 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
             NSString *securityPatchLevel = [self.buildNumber substringFromIndex:actualRange.location + 1];
             NSString *expectedPatchLevel = [expectedBuild substringWithRange:expectedRange];
             NSString *expectedSecurityPatchLevel = [expectedBuild substringFromIndex:actualRange.location + 1];
+            NSInteger securityPatchLevelInt = [securityPatchLevel integerValue];
+            NSInteger expectedSecurityPatchLevelInt = [expectedSecurityPatchLevel integerValue];
             if (patchLevel && securityPatchLevel && expectedPatchLevel && expectedSecurityPatchLevel) {
                 if ([patchLevel compare:expectedPatchLevel] == NSOrderedDescending) {
                     // Current patch level is greater than expected patch level,
                     // (e.g., D > C).
                     return YES;
-                } else if ([patchLevel isEqualToString:expectedPatchLevel] && [securityPatchLevel compare:expectedSecurityPatchLevel] == NSOrderedDescending) {
+                } else if ([patchLevel isEqualToString:expectedPatchLevel] && securityPatchLevelInt > expectedSecurityPatchLevelInt) {
                     // Current patch level is equal to expected patch level,
                     // but security patch level is greater than expected security
                     // patch level, (e.g., D480 > D47, because D == D && 480 > 47).
