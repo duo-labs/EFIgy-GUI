@@ -28,7 +28,9 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
 {
-    _window.backgroundColor = [NSColor whiteColor];
+    if (![self darkModeEnabled]) {
+        _window.backgroundColor = [NSColor whiteColor];
+    }
 
     self.boardID = [[self class] getBoardID];
     self.bootROMVersion = [[self class] getBootROMVersion];
@@ -49,6 +51,17 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
 - (void)applicationWillTerminate:(NSNotification *)aNotification
 {
     // Insert code here to tear down your application
+}
+
+- (BOOL)darkModeEnabled
+{
+    BOOL darkModeEnabled = NO;
+
+    if ([[NSUserDefaults standardUserDefaults] objectForKey:@"AppleInterfaceStyle"]) {
+        darkModeEnabled = YES;
+    }
+
+    return darkModeEnabled;
 }
 
 + (NSString *)getBoardID
@@ -655,7 +668,15 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
         [self.transparentBlackView removeFromSuperview];
         self.resultsView.hidden = NO;
         [self.resultsView setWantsLayer:YES];
-        CGColorRef color = CGColorCreateGenericRGB(0.0, 0.0, 0.0, 0.6);
+        CGColorRef color;
+        if ([self darkModeEnabled]) {
+            self.firmwareUpToDateLabel.textColor = [NSColor whiteColor];
+            self.buildUpToDateLabel.textColor = [NSColor whiteColor];
+            self.osUpToDateLabel.textColor = [NSColor whiteColor];
+            color = CGColorCreateGenericRGB(1.0, 1.0, 1.0, 0.3);
+        } else {
+            color = CGColorCreateGenericRGB(0.0, 0.0, 0.0, 0.6);
+        }
         self.resultsView.layer.backgroundColor = color;
         self.resultsView.layerUsesCoreImageFilters = YES;
         CIFilter *filter = [CIFilter filterWithName:@"CIGaussianBlur"];
