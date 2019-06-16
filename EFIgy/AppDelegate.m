@@ -91,18 +91,29 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     CFIndex bufferLength = CFDataGetLength(data);
     UInt8 *buffer = malloc(bufferLength);
     CFDataGetBytes(data, CFRangeMake(0, bufferLength), (UInt8 *)buffer);
+
+    if (data != NULL) {
+        CFRelease(data);
+    }
+
     CFStringRef string = CFStringCreateWithBytes(kCFAllocatorDefault,
                                                  buffer,
                                                  bufferLength,
                                                  kCFStringEncodingUTF8,
                                                  TRUE);
-    NSArray *arr = [(__bridge NSString *)string componentsSeparatedByString:@"."];
-    NSString *bootROMVersion = [NSString stringWithFormat:@"%@.%@.%@", arr[0], arr[2], arr[3]];
     free(buffer);
-    CFRelease(data);
-    CFRelease(string);
+
+    NSString *ret = nil;
+    if (string != NULL) {
+        NSArray *arr = [(__bridge NSString *)string componentsSeparatedByString:@"."];
+        if (arr != nil && [arr count] >= 4) {
+            NSString *bootROMVersion = [NSString stringWithFormat:@"%@.%@.%@", arr[0], arr[2], arr[3]];
+            ret = [bootROMVersion stringByReplacingOccurrencesOfString:@"\00" withString:@""];
+        }
+        CFRelease(string);
+    }
     
-    return [bootROMVersion stringByReplacingOccurrencesOfString:@"\00" withString:@""];
+    return ret;
 }
 
 + (NSString *)getSMCVersion
@@ -117,10 +128,14 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
                                              parameter,
                                              kCFAllocatorDefault, 0);
     IOObjectRelease(sv);
-    NSString *smcVersion = [(__bridge NSString *)string copy];
-    CFRelease(string);
-    
-    return [smcVersion stringByReplacingOccurrencesOfString:@"\00" withString:@""];
+
+    if (string != NULL) {
+        NSString *smcVersion = [(__bridge NSString *)string copy];
+        CFRelease(string);
+        return [smcVersion stringByReplacingOccurrencesOfString:@"\00" withString:@""];
+    }
+
+    return nil;
 }
 
 + (NSString *)getOSVersion
@@ -153,15 +168,20 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     io_registry_entry_t ioRegistryRoot = IORegistryEntryFromPath(kIOMasterPortDefault, "IOService:/");
     CFStringRef uuidCf = (CFStringRef)IORegistryEntryCreateCFProperty(ioRegistryRoot, CFSTR(kIOPlatformUUIDKey), kCFAllocatorDefault, 0);
     IOObjectRelease(ioRegistryRoot);
-    NSString *uuid = (__bridge NSString *)uuidCf;
 
-    // TODO: Gross gross gross gross
-    NSString *py = [NSString stringWithFormat:@"import hashlib; print(hashlib.sha256('%@' + '%@').hexdigest())", macAddr, uuid];
-    NSString *hash = [[self class] runCommandAndReturnOutput:@"/usr/bin/python"
-                                                    withArgs:@[@"-c", [py stringByReplacingOccurrencesOfString:@"\n" withString:@""]]];
-    CFRelease(uuidCf);
-    
-    return [hash stringByReplacingOccurrencesOfString:@"\n" withString:@""];
+    if (uuidCf != NULL) {
+        NSString *uuid = (__bridge NSString *)uuidCf;
+
+        // TODO: Gross gross gross gross
+        NSString *py = [NSString stringWithFormat:@"import hashlib; print(hashlib.sha256('%@' + '%@').hexdigest())", macAddr, uuid];
+        NSString *hash = [[self class] runCommandAndReturnOutput:@"/usr/bin/python"
+                                                        withArgs:@[@"-c", [py stringByReplacingOccurrencesOfString:@"\n" withString:@""]]];
+        CFRelease(uuidCf);
+
+        return [hash stringByReplacingOccurrencesOfString:@"\n" withString:@""];
+    }
+
+    return nil;
 }
 
 + (NSString *)getIOKitData:(NSString *)ioService withParam:(NSString *)param
@@ -177,17 +197,26 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     CFIndex bufferLength = CFDataGetLength(data);
     UInt8 *buffer = malloc(bufferLength);
     CFDataGetBytes(data, CFRangeMake(0, bufferLength), (UInt8 *)buffer);
+
+    if (data != NULL) {
+        CFRelease(data);
+    }
+
     CFStringRef string = CFStringCreateWithBytes(kCFAllocatorDefault,
                                                  buffer,
                                                  bufferLength,
                                                  kCFStringEncodingUTF8,
                                                  TRUE);
-    NSString *result = [(__bridge NSString *)string copy];
     free(buffer);
-    CFRelease(data);
-    CFRelease(string);
+
+    if (string != NULL) {
+        NSString *result = [(__bridge NSString *)string copy];
+        CFRelease(string);
     
-    return [result stringByReplacingOccurrencesOfString:@"\00" withString:@""];
+        return [result stringByReplacingOccurrencesOfString:@"\00" withString:@""];
+    }
+
+    return nil;
 }
 
 + (NSString *)runCommandAndReturnOutput:(NSString *)launchPath withArgs:(NSArray *)args
@@ -320,6 +349,49 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     return NO;
 }
 
+- (BOOL)arrayOfStringsContainsOnlyDigits:(NSArray *)arr
+{
+    for (NSString *part in arr) {
+        NSCharacterSet *notDigits = [[NSCharacterSet decimalDigitCharacterSet] invertedSet];
+        if (!([part rangeOfCharacterFromSet:notDigits].location == NSNotFound)) {
+            return NO;
+        }
+    }
+    return YES;
+}
+
+- (NSNumber *)getEFIVersionFromString:(NSString *)efiVersionString
+{
+    NSArray *efiParts = [efiVersionString componentsSeparatedByString:@"."];
+    if (efiParts && (efiParts.count > 0)) {
+        NSNumber *efiVersion;
+        if ([self arrayOfStringsContainsOnlyDigits:efiParts]) {
+            efiVersion = [[self class] numberFromHexString:efiParts[0]];
+        } else {
+            efiVersion = [[self class] numberFromHexString:efiParts[1]];
+        }
+        return efiVersion;
+    }
+    return nil;
+}
+
+- (NSNumber *)getEFIBuildFromString:(NSString *)efiVersionString
+{
+    NSArray *efiParts = [efiVersionString componentsSeparatedByString:@"."];
+    if (efiParts && (efiParts.count > 0)) {
+        NSNumber *efiBuild;
+        if ([self arrayOfStringsContainsOnlyDigits:efiParts]) {
+            efiBuild = 0;
+        } else {
+            efiBuild = [[self class] numberFromString:
+                                    [efiParts[2] stringByReplacingOccurrencesOfString:@"B"
+                                                                             withString:@""]];
+        }
+        return efiBuild;
+    }
+    return nil;
+}
+
 - (BOOL)checkFirmwareBeingUpdated
 {
     if ([self validateResponse:self.results[@"efi_updates_relased"]]) {
@@ -333,7 +405,17 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
 - (BOOL)checkFirmwareVersions
 {
     if ([self validateResponse:self.results[@"latest_efi_version"]]) {
+        // Newer EFI versions do not include a build number
+        // or the Mac model code. The output will be something
+        // like 256.0.0, whereas with the old format it would
+        // be MBP133.0256.B00.
+        NSNumber *myEFIVersion = [self getEFIVersionFromString:self.bootROMVersion];
+        NSNumber *myEFIBuild = [self getEFIBuildFromString:self.bootROMVersion];
+        NSNumber *apiEFIVersion = [self getEFIVersionFromString:self.results[@"latest_efi_version"][@"msg"]];
+        NSNumber *apiEFIBuild = [self getEFIBuildFromString:self.bootROMVersion];
         if ([self.results[@"latest_efi_version"][@"msg"] isEqualToString:self.bootROMVersion]) {
+            return YES;
+        } else if (myEFIVersion == apiEFIVersion && myEFIBuild == apiEFIBuild) {
             return YES;
         }
     }
@@ -343,20 +425,12 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
 - (BOOL)checkFirmwareVersionGreaterThanKnown
 {
     if ([self validateResponse:self.results[@"latest_efi_version"]]) {
-        NSArray *apiEFIParts = [self.results[@"latest_efi_version"][@"msg"] componentsSeparatedByString:@"."];
-        NSArray *myEFIParts = [self.bootROMVersion componentsSeparatedByString:@"."];
-        if ((apiEFIParts && (apiEFIParts.count > 0)) && (myEFIParts && (myEFIParts.count > 0))) {
-            NSNumber *apiEFIVersion = [[self class] numberFromHexString:apiEFIParts[1]];
-            NSNumber *myEFIVersion = [[self class] numberFromHexString:myEFIParts[1]];
-            NSNumber *apiEFIBuild = [[self class] numberFromString:
-                                     [apiEFIParts[2] stringByReplacingOccurrencesOfString:@"B"
-                                                                               withString:@""]];
-            NSNumber *myEFIBuild = [[self class] numberFromString:
-                                    [myEFIParts[2] stringByReplacingOccurrencesOfString:@"B"
-                                                                             withString:@""]];
-            if (([myEFIVersion isGreaterThan:apiEFIVersion]) || ([myEFIVersion isEqualToNumber:apiEFIVersion] && [myEFIBuild isGreaterThan:apiEFIBuild])) {
-                return YES;
-            }
+        NSNumber *myEFIVersion = [self getEFIVersionFromString:self.bootROMVersion];
+        NSNumber *myEFIBuild = [self getEFIBuildFromString:self.bootROMVersion];
+        NSNumber *apiEFIVersion = [self getEFIVersionFromString:self.results[@"latest_efi_version"][@"msg"]];
+        NSNumber *apiEFIBuild = [self getEFIBuildFromString:self.bootROMVersion];
+        if (([myEFIVersion isGreaterThan:apiEFIVersion]) || ([myEFIVersion isEqualToNumber:apiEFIVersion] && [myEFIBuild isGreaterThan:apiEFIBuild])) {
+            return YES;
         }
     }
     return NO;
@@ -677,13 +751,15 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
         } else {
             color = CGColorCreateGenericRGB(0.0, 0.0, 0.0, 0.6);
         }
-        self.resultsView.layer.backgroundColor = color;
-        self.resultsView.layerUsesCoreImageFilters = YES;
-        CIFilter *filter = [CIFilter filterWithName:@"CIGaussianBlur"];
-        [filter setDefaults];
-        [filter setValue:[NSNumber numberWithFloat:5.0f] forKey:kCIInputRadiusKey];
-        self.resultsView.backgroundFilters = @[filter];
-        CFRelease(color);
+        if (color != NULL) {
+            self.resultsView.layer.backgroundColor = color;
+            self.resultsView.layerUsesCoreImageFilters = YES;
+            CIFilter *filter = [CIFilter filterWithName:@"CIGaussianBlur"];
+            [filter setDefaults];
+            [filter setValue:[NSNumber numberWithFloat:5.0f] forKey:kCIInputRadiusKey];
+            self.resultsView.backgroundFilters = @[filter];
+            CFRelease(color);
+        }
     });
 }
 
