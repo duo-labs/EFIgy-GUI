@@ -40,12 +40,12 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     self.buildNumber = [[self class] getBuildNumber];
     self.hashedSysUUID = [[self class] getHashedSysUUID];
 
-    _boardIDLabel.stringValue = self.boardID;
-    _bootROMVersionLabel.stringValue = self.bootROMVersion;
-    _hardwareVersionLabel.stringValue = self.machineModel;
-    _smcVersionLabel.stringValue = self.smcVersion;
-    _osVersionLabel.stringValue = self.osVersion;
-    _buildNumberLabel.stringValue = self.buildNumber;
+    _boardIDLabel.stringValue = self.boardID != nil ? self.boardID : @"";
+    _bootROMVersionLabel.stringValue = self.bootROMVersion != nil ? self.bootROMVersion : @"";
+    _hardwareVersionLabel.stringValue = self.machineModel != nil ? self.machineModel : @"";
+    _smcVersionLabel.stringValue = self.smcVersion != nil ? self.smcVersion : @"";
+    _osVersionLabel.stringValue = self.osVersion != nil ? self.osVersion : @"";
+    _buildNumberLabel.stringValue = self.buildNumber != nil ? self.buildNumber : @"";
 }
 
 - (void)applicationWillTerminate:(NSNotification *)aNotification
@@ -779,13 +779,13 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
 
     [[self.window contentView] addSubview:self.transparentBlackView];
 
-    NSDictionary *dataToSubmit = @{@"hashed_uuid": self.hashedSysUUID,
-                                   @"hw_ver": self.machineModel,
-                                   @"rom_ver": self.bootROMVersion,
-                                   @"smc_ver": self.smcVersion,
-                                   @"board_id": self.boardID,
-                                   @"os_ver": self.osVersion,
-                                   @"build_num": self.buildNumber};
+    NSDictionary *dataToSubmit = @{@"hashed_uuid": self.hashedSysUUID != nil ? self.hashedSysUUID : @"",
+                                   @"hw_ver": self.machineModel != nil ? self.machineModel : @"",
+                                   @"rom_ver": self.bootROMVersion != nil ? self.bootROMVersion : @"",
+                                   @"smc_ver": self.smcVersion != nil ? self.smcVersion : @"",
+                                   @"board_id": self.boardID != nil ? self.boardID : @"",
+                                   @"os_ver": self.osVersion != nil ? self.osVersion : @"",
+                                   @"build_num": self.buildNumber != nil ? self.buildNumber : @""};
 
     [self makeAPIPost:@"/apple/oneshot" withData:dataToSubmit success:^(NSDictionary *responseDict) {
         self.results = responseDict;
