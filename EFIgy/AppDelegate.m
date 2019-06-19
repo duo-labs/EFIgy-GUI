@@ -43,7 +43,8 @@ static NSString * const kAPIURL = @"https://api.efigy.io";
     _boardIDLabel.stringValue = self.boardID != nil ? self.boardID : @"";
     _bootROMVersionLabel.stringValue = self.bootROMVersion != nil ? self.bootROMVersion : @"";
     _hardwareVersionLabel.stringValue = self.machineModel != nil ? self.machineModel : @"";
-    _smcVersionLabel.stringValue = self.smcVersion != nil ? self.smcVersion : @"";
+    // The SMC is built into the T2, so on Macs with that chip this will be `nil`.
+    _smcVersionLabel.stringValue = self.smcVersion != nil ? self.smcVersion : @"N/A";
     _osVersionLabel.stringValue = self.osVersion != nil ? self.osVersion : @"";
     _buildNumberLabel.stringValue = self.buildNumber != nil ? self.buildNumber : @"";
 }
