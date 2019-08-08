@@ -5,6 +5,20 @@
         <description>Most recent changes with links to updates.</description>
         <language>en</language>
         <item>
+			<title>Version 1.0.3</title>
+            <description>
+                <![CDATA[
+                <p>Various bug fixes and changes, including:</p>
+
+                <ul>
+                    <li>Better support for Macs with a T2 Security Chip.</li>
+                </ul>
+                ]]>
+            </description>
+            <pubDate>Thu, 8 Aug 2019 20:45:00 +0000</pubDate>
+            <enclosure url="https://github.com/duo-labs/EFIgy-GUI/releases/download/v1.0.3/EFIgy-1.0.3.zip" sparkle:version="4" sparkle:shortVersionString="1.0.3" type="application/octet-stream" />
+        </item>
+        <item>
 			<title>Version 1.0.2</title>
             <description>
                 <![CDATA[
