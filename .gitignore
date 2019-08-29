@@ -22,3 +22,7 @@ DerivedData
 *.ipa
 *.xcuserstate
 *.orig
+
+# Archives
+buildArchive/
+*.xcarchive

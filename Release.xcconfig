@@ -1,0 +1,13 @@
+//
+//  Common.xcconfig
+//  EFIgy
+//
+//  Created by James Barclay on 8/15/19.
+//  Copyright © 2019 Duo Security. All rights reserved.
+//
+
+// Configuration settings file format documentation can be found at:
+// https://help.apple.com/xcode/#/dev745c5c974
+
+ENABLE_HARDENED_RUNTIME = YES
+OTHER_CODE_SIGN_FLAGS = --deep --timestamp
