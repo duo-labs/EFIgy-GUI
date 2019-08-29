@@ -5,6 +5,22 @@
         <description>Most recent changes with links to updates.</description>
         <language>en</language>
         <item>
+			<title>Version 1.0.4</title>
+            <description>
+                <![CDATA[
+                <p>Various bug fixes and changes, including:</p>
+
+                <ul>
+                    <li>Enabled Hardened Runtime.</li>
+                    <li>Notarized EFIgy-GUI.</li>
+                    <li>Embedded Sparkle bundle is now properly code-signed.</li>
+                </ul>
+                ]]>
+            </description>
+            <pubDate>Thu, 29 Aug 2019 19:25:00 +0000</pubDate>
+            <enclosure url="https://github.com/duo-labs/EFIgy-GUI/releases/download/v1.0.4/EFIgy-1.0.4.zip" sparkle:version="5" sparkle:shortVersionString="1.0.4" type="application/octet-stream" />
+        </item>
+        <item>
 			<title>Version 1.0.3</title>
             <description>
                 <![CDATA[
